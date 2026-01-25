@@ -35,6 +35,7 @@ typedef enum SessionState {
     SESSION_TRANSITIONING,
     SESSION_CONNECTING,
     SESSION_RUNNING,
+    SESSION_EXITING,
 } SessionState;
 
 typedef struct EffectState {
@@ -155,8 +156,11 @@ static void configure_gekko() {
     config.desync_detection = true;
 #endif
 
-    gekko_create(&session);
-    gekko_start(session, &config);
+    if (gekko_create(&session)) {
+        gekko_start(session, &config);
+    } else {
+        printf("Session is already running! probably incorrect.\n");
+    }
 
 #if defined(LOSSY_ADAPTER)
     configure_lossy_adapter();
@@ -559,11 +563,15 @@ void Netplay_Run() {
         run_netplay();
         break;
 
-    case SESSION_IDLE:
+    case SESSION_EXITING:
         if (session != NULL) {
+            // cleanup session and then return to idle
             gekko_destroy(&session);
         }
+        session_state = SESSION_IDLE;
+        break;
 
+    case SESSION_IDLE:
         break;
     }
 }
@@ -573,5 +581,5 @@ bool Netplay_IsRunning() {
 }
 
 void Netplay_HandleMenuExit() {
-    session_state = SESSION_IDLE;
+    session_state = SESSION_EXITING;
 }
