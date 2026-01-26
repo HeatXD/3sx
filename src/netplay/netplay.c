@@ -567,6 +567,11 @@ void Netplay_Run() {
         if (session != NULL) {
             // cleanup session and then return to idle
             gekko_destroy(&session);
+            // also cleanup default socket.
+            #if !defined(LOSSY_ADAPTER)
+            gekko_default_adapter_destroy();
+            #endif
+            
         }
         session_state = SESSION_IDLE;
         break;
