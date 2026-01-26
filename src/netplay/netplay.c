@@ -568,7 +568,7 @@ void Netplay_Run() {
             // cleanup session and then return to idle
             gekko_destroy(&session);
             // also cleanup default socket.
-            #if !defined(LOSSY_ADAPTER)
+            #ifndef LOSSY_ADAPTER
             gekko_default_adapter_destroy();
             #endif
             
