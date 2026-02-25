@@ -125,6 +125,8 @@ static void setup_vs_mode() {
     cpExitTask(TASK_MENU);
 
     E_Timer = 0; // E_Timer can have different values depending on when the session was initiated
+    G_Timer = 0; // G_Timer accumulates during the title screen and differs between clients on first connection
+    bg_w.bgw[0].l_limit = 0; // l_limit an animation counter used in the opening sequence, can differ between clients
 
     Deley_Shot_No[0] = 0;
     Deley_Shot_No[1] = 0;
