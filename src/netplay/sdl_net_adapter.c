@@ -1,13 +1,13 @@
 #include "netplay/sdl_net_adapter.h"
 
-#include <SDL3_net/SDL_net.h>
 #include <SDL3/SDL.h>
+#include <SDL3_net/SDL_net.h>
 
-#define MAX_RESULTS 64
+#define MAX_NETWORK_RESULTS 128
 
 static NET_DatagramSocket* adapter_sock = NULL;
 static GekkoNetAdapter adapter_struct;
-static GekkoNetResult* results[MAX_RESULTS];
+static GekkoNetResult* results[MAX_NETWORK_RESULTS];
 static int result_count = 0;
 
 static void send_data(GekkoNetAddress* addr, const char* data, int length) {
@@ -17,9 +17,11 @@ static void send_data(GekkoNetAddress* addr, const char* data, int length) {
 
     char ip[64];
     int port = 0;
+
     SDL_sscanf((const char*)addr->data, "%63[^:]:%d", ip, &port);
 
     NET_Address* remote = NET_ResolveHostname(ip);
+
     NET_WaitUntilResolved(remote, 100);
     NET_SendDatagram(adapter_sock, remote, (Uint16)port, data, length);
     NET_UnrefAddress(remote);
@@ -34,9 +36,11 @@ static GekkoNetResult** receive_data(int* length) {
     }
 
     NET_Datagram* dgram = NULL;
-    while (result_count < MAX_RESULTS && NET_ReceiveDatagram(adapter_sock, &dgram) && dgram) {
+
+    while (result_count < MAX_NETWORK_RESULTS && NET_ReceiveDatagram(adapter_sock, &dgram) && dgram) {
         const char* ip_str = NET_GetAddressString(dgram->addr);
         char addr_str[64];
+
         SDL_snprintf(addr_str, sizeof(addr_str), "%s:%d", ip_str, (int)dgram->port);
 
         GekkoNetResult* res = SDL_malloc(sizeof(GekkoNetResult));

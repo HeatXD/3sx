@@ -1,7 +1,7 @@
 #include "netplay/matchmaking.h"
 
-#include <SDL3_net/SDL_net.h>
 #include <SDL3/SDL.h>
+#include <SDL3_net/SDL_net.h>
 #include <stdio.h>
 
 static MatchmakingState state = MATCHMAKING_IDLE;
@@ -25,6 +25,7 @@ static int pop_line(char* out, int out_size) {
     for (int i = 0; i < line_len; i++) {
         if (line_buf[i] == '\n') {
             int copy_len = (i < out_size - 1) ? i : out_size - 1;
+
             SDL_memcpy(out, line_buf, copy_len);
             out[copy_len] = '\0';
 
@@ -39,10 +40,13 @@ static int pop_line(char* out, int out_size) {
 
 static void read_into_line_buf() {
     int space = (int)sizeof(line_buf) - line_len - 1;
+
     if (space <= 0) {
         return;
     }
+
     int n = NET_ReadFromStreamSocket(tcp_sock, line_buf + line_len, space);
+
     if (n > 0) {
         line_len += n;
     }
@@ -71,14 +75,17 @@ void Matchmaking_Run() {
     switch (state) {
     case MATCHMAKING_RESOLVING_DNS: {
         int status = NET_GetAddressStatus(server_addr);
+
         if (status == 1) {
             tcp_sock = NET_CreateClient(server_addr, (Uint16)saved_tcp_port);
+
             if (tcp_sock == NULL) {
                 printf("Matchmaking: failed to create TCP client: %s\n", SDL_GetError());
                 state = MATCHMAKING_ERROR;
             } else {
                 state = MATCHMAKING_CONNECTING_TCP;
             }
+
         } else if (status == -1) {
             printf("Matchmaking: DNS resolution failed: %s\n", SDL_GetError());
             state = MATCHMAKING_ERROR;
@@ -88,6 +95,7 @@ void Matchmaking_Run() {
 
     case MATCHMAKING_CONNECTING_TCP: {
         int conn_status = NET_GetConnectionStatus(tcp_sock);
+
         if (conn_status == 1) {
             state = MATCHMAKING_AWAITING_ID;
         } else if (conn_status == -1) {
@@ -99,6 +107,7 @@ void Matchmaking_Run() {
 
     case MATCHMAKING_AWAITING_ID:
         read_into_line_buf();
+
         if (pop_line(tmp, sizeof(tmp))) {
             SDL_strlcpy(id_buf, tmp, sizeof(id_buf));
             printf("Matchmaking: received ID: %s\n", id_buf);
@@ -109,6 +118,7 @@ void Matchmaking_Run() {
     case MATCHMAKING_SENDING_UDP:
         if (udp_sock == NULL) {
             udp_sock = NET_CreateDatagramSocket(NULL, 0);
+
             if (udp_sock == NULL) {
                 printf("Matchmaking: failed to create UDP socket: %s\n", SDL_GetError());
                 state = MATCHMAKING_ERROR;
@@ -120,10 +130,12 @@ void Matchmaking_Run() {
             NET_SendDatagram(udp_sock, server_addr, (Uint16)saved_udp_port, id_buf, 7);
             udp_retry_timer = 60; // retransmit every ~1 second
         }
+
         udp_retry_timer--;
 
         // Advance when the server responds via TCP (confirms it received our UDP).
         read_into_line_buf();
+
         if (line_len > 0) {
             state = MATCHMAKING_AWAITING_MATCH;
         }
@@ -131,6 +143,7 @@ void Matchmaking_Run() {
 
     case MATCHMAKING_AWAITING_MATCH:
         read_into_line_buf();
+
         while (pop_line(tmp, sizeof(tmp))) {
             if (lines_received == 0) {
                 match_result.player = SDL_atoi(tmp);
