@@ -288,6 +288,7 @@ static void game_step_0() {
         njdp2d_draw();
         seqsAfterProcess();
         Netplay_TickMatchmaking();
+        Netplay_TickDirectP2P();
     }
 
     KnjFlush();

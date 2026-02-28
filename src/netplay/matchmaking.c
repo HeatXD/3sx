@@ -2,6 +2,7 @@
 
 #include <SDL3/SDL.h>
 #include <SDL3_net/SDL_net.h>
+#include <stdbool.h>
 #include <stdio.h>
 
 static MatchmakingState state = MATCHMAKING_IDLE;
@@ -16,26 +17,24 @@ static int saved_udp_port = 0;
 static char id_buf[8]; // 7-char ID + null
 static char line_buf[128];
 static int line_len = 0;
-static int lines_received = 0; // 0 = waiting for player num, 1 = waiting for ip:port
 static int udp_retry_timer = 0;
 
 static MatchResult match_result;
 
-static int pop_line(char* out, int out_size) {
+static bool pop_line(char* out, int out_size) {
     for (int i = 0; i < line_len; i++) {
         if (line_buf[i] == '\n') {
             int copy_len = (i < out_size - 1) ? i : out_size - 1;
 
-            SDL_memcpy(out, line_buf, copy_len);
-            out[copy_len] = '\0';
+            SDL_strlcpy(out, line_buf, copy_len + 1);
 
             int remaining = line_len - i - 1;
             SDL_memmove(line_buf, line_buf + i + 1, remaining);
             line_len = remaining;
-            return 1;
+            return true;
         }
     }
-    return 0;
+    return false;
 }
 
 static void read_into_line_buf() {
@@ -61,7 +60,6 @@ void Matchmaking_Start(const char* server_ip, int tcp_port, int udp_port) {
     SDL_zeroa(id_buf);
     SDL_zeroa(line_buf);
     line_len = 0;
-    lines_received = 0;
     udp_retry_timer = 0;
     SDL_zero(match_result);
 
@@ -73,37 +71,43 @@ void Matchmaking_Run() {
     char tmp[128];
 
     switch (state) {
-    case MATCHMAKING_RESOLVING_DNS: {
-        int status = NET_GetAddressStatus(server_addr);
-
-        if (status == 1) {
+    case MATCHMAKING_RESOLVING_DNS:
+        switch (NET_GetAddressStatus(server_addr)) {
+        case NET_SUCCESS:
             tcp_sock = NET_CreateClient(server_addr, (Uint16)saved_tcp_port);
-
             if (tcp_sock == NULL) {
                 printf("Matchmaking: failed to create TCP client: %s\n", SDL_GetError());
                 state = MATCHMAKING_ERROR;
             } else {
                 state = MATCHMAKING_CONNECTING_TCP;
             }
+            break;
 
-        } else if (status == -1) {
+        case NET_FAILURE:
             printf("Matchmaking: DNS resolution failed: %s\n", SDL_GetError());
             state = MATCHMAKING_ERROR;
+            break;
+
+        case NET_WAITING:
+            break;
         }
         break;
-    }
 
-    case MATCHMAKING_CONNECTING_TCP: {
-        int conn_status = NET_GetConnectionStatus(tcp_sock);
-
-        if (conn_status == 1) {
+    case MATCHMAKING_CONNECTING_TCP:
+        switch (NET_GetConnectionStatus(tcp_sock)) {
+        case NET_SUCCESS:
             state = MATCHMAKING_AWAITING_ID;
-        } else if (conn_status == -1) {
+            break;
+
+        case NET_FAILURE:
             printf("Matchmaking: TCP connection failed: %s\n", SDL_GetError());
             state = MATCHMAKING_ERROR;
+            break;
+
+        case NET_WAITING:
+            break;
         }
         break;
-    }
 
     case MATCHMAKING_AWAITING_ID:
         read_into_line_buf();
@@ -128,7 +132,7 @@ void Matchmaking_Run() {
 
         if (udp_retry_timer <= 0) {
             NET_SendDatagram(udp_sock, server_addr, (Uint16)saved_udp_port, id_buf, 7);
-            udp_retry_timer = 60; // retransmit every ~1 second
+            udp_retry_timer = 30; // retransmit every ~0.5 seconds
         }
 
         udp_retry_timer--;
@@ -144,17 +148,13 @@ void Matchmaking_Run() {
     case MATCHMAKING_AWAITING_MATCH:
         read_into_line_buf();
 
-        while (pop_line(tmp, sizeof(tmp))) {
-            if (lines_received == 0) {
-                match_result.player = SDL_atoi(tmp);
-                printf("Matchmaking: player number: %d\n", match_result.player);
-                lines_received = 1;
-            } else if (lines_received == 1) {
-                SDL_sscanf(tmp, "%63[^:]:%d", match_result.ip, &match_result.remote_port);
-                printf("Matchmaking: matched with %s:%d\n", match_result.ip, match_result.remote_port);
-                state = MATCHMAKING_MATCHED;
-                break;
-            }
+        if (pop_line(tmp, sizeof(tmp))) {
+            SDL_sscanf(tmp, "%d %63[^:]:%d", &match_result.player, match_result.ip, &match_result.remote_port);
+            printf("Matchmaking: player %d, matched with %s:%d\n",
+                   match_result.player,
+                   match_result.ip,
+                   match_result.remote_port);
+            state = MATCHMAKING_MATCHED;
         }
         break;
 
@@ -200,7 +200,6 @@ void Matchmaking_Reset() {
     SDL_zeroa(id_buf);
     SDL_zeroa(line_buf);
     line_len = 0;
-    lines_received = 0;
     udp_retry_timer = 0;
     SDL_zero(match_result);
 

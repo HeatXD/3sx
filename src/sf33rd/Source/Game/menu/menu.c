@@ -289,6 +289,26 @@ void Menu_Init(struct _TASK* task_ptr) {
     cpReadyTask(TASK_SAVER, Saver_Task);
 }
 
+#if defined(NETPLAY_ENABLED)
+// Returns true while matchmaking is pending, consuming input to cancel.
+// Caller should skip normal menu logic when this returns true.
+static bool check_netplay_cancelled() {
+    if (!Netplay_IsMatchmakingPending()) {
+        return false;
+    }
+
+    // I dont know if we want users to be able to cancel mm on their own?
+    // s16 sw = (~plsw_01[0] & plsw_00[0]) | (~plsw_01[1] & plsw_00[1]);
+
+    // if (sw & (SWK_SOUTH | SWK_EAST)) {
+    //     Netplay_CancelMatchmaking();
+    //     SE_selected();
+    // }
+
+    return true;
+}
+#endif
+
 void Mode_Select(struct _TASK* task_ptr) {
     s16 ix;
     s16 PL_id;
@@ -374,13 +394,7 @@ void Mode_Select(struct _TASK* task_ptr) {
 
     case 3:
 #if defined(NETPLAY_ENABLED)
-        if (Netplay_IsMatchmakingPending()) {
-            s16 sw = (~plsw_01[0] & plsw_00[0]) | (~plsw_01[1] & plsw_00[1]);
-
-            if (sw & (SWK_SOUTH | SWK_EAST)) {
-                Netplay_CancelMatchmaking();
-                SE_selected();
-            }
+        if (check_netplay_cancelled()) {
             break;
         }
 #endif
@@ -417,7 +431,7 @@ void Mode_Select(struct _TASK* task_ptr) {
             case 4:
 #if defined(NETPLAY_ENABLED)
                 Netplay_BeginMatchmaking();
-                SE_selected();
+                Netplay_BeginDirectP2P();
                 break;
 #endif
                 /* fallthrough */

@@ -69,8 +69,7 @@ class MatchmakingCoordinator:
         await self._try_match()
 
     async def _send_match_info(self, writer: asyncio.StreamWriter, player_num: str, ep: str) -> None:
-        await self._send_tcp(writer, player_num)
-        await self._send_tcp(writer, ep)
+        await self._send_tcp(writer, f"{player_num} {ep}")
 
     async def _try_match(self) -> None:
         while len(self._waiting) >= 2:

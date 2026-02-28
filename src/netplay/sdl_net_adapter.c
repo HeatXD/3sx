@@ -6,25 +6,37 @@
 #define MAX_NETWORK_RESULTS 128
 
 static NET_DatagramSocket* adapter_sock = NULL;
-static GekkoNetAdapter adapter_struct;
+static GekkoNetAdapter adapter;
 static GekkoNetResult* results[MAX_NETWORK_RESULTS];
 static int result_count = 0;
+
+static NET_Address* cached_remote = NULL;
+static Uint16 cached_port = 0;
 
 static void send_data(GekkoNetAddress* addr, const char* data, int length) {
     if (adapter_sock == NULL) {
         return;
     }
 
-    char ip[64];
-    int port = 0;
+    if (cached_remote == NULL) {
+        char ip[64];
+        int port = 0;
+        SDL_sscanf((const char*)addr->data, "%63[^:]:%d", ip, &port);
+        cached_remote = NET_ResolveHostname(ip);
+        cached_port = (Uint16)port;
+    }
 
-    SDL_sscanf((const char*)addr->data, "%63[^:]:%d", ip, &port);
-
-    NET_Address* remote = NET_ResolveHostname(ip);
-
-    NET_WaitUntilResolved(remote, 100);
-    NET_SendDatagram(adapter_sock, remote, (Uint16)port, data, length);
-    NET_UnrefAddress(remote);
+    switch (NET_GetAddressStatus(cached_remote)) {
+    case NET_SUCCESS:
+        NET_SendDatagram(adapter_sock, cached_remote, cached_port, data, length);
+        break;
+    case NET_FAILURE:
+        NET_UnrefAddress(cached_remote);
+        cached_remote = NULL;
+        break;
+    case NET_WAITING: // still resolving, skip — GekkoNet will retransmit
+        break;
+    }
 }
 
 static GekkoNetResult** receive_data(int* length) {
@@ -69,12 +81,17 @@ static void free_data(void* ptr) {
 
 GekkoNetAdapter* SDLNetAdapter_Create(struct NET_DatagramSocket* sock) {
     adapter_sock = sock;
-    adapter_struct.send_data = send_data;
-    adapter_struct.receive_data = receive_data;
-    adapter_struct.free_data = free_data;
-    return &adapter_struct;
+    adapter.send_data = send_data;
+    adapter.receive_data = receive_data;
+    adapter.free_data = free_data;
+    return &adapter;
 }
 
 void SDLNetAdapter_Destroy() {
     adapter_sock = NULL;
+    if (cached_remote != NULL) {
+        NET_UnrefAddress(cached_remote);
+        cached_remote = NULL;
+    }
+    cached_port = 0;
 }

@@ -72,12 +72,5 @@ void NetplayScreen_Render() {
     }
 
     const char* msg = "Match found!";
-
-    const u8 prev = No_Trans;
-    No_Trans = 0;
-
-    overwrite_panel(0xFF000000, 3);
     SSPutStrPro(1, 384, 110, 9, 0xFFFFFFFF, msg);
-
-    No_Trans = prev;
 }

@@ -1,9 +1,8 @@
 #include "netplay/netplay.h"
-#include "netplay/matchmaking.h"
-#include "netplay/sdl_net_adapter.h"
-#include <SDL3_net/SDL_net.h>
 #include "main.h"
 #include "netplay/game_state.h"
+#include "netplay/matchmaking.h"
+#include "netplay/sdl_net_adapter.h"
 #include "port/sdl/sdl_app.h"
 #include "sf33rd/Source/Game/effect/effect.h"
 #include "sf33rd/Source/Game/engine/grade.h"
@@ -26,6 +25,7 @@
 
 #include "gekkonet.h"
 #include <SDL3/SDL.h>
+#include <SDL3_net/SDL_net.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -65,6 +65,7 @@ static char matched_ip[64];
 static const char* matchmaking_server_ip = NULL;
 static int matchmaking_server_port = 9000;
 static bool matchmaking_pending = false;
+static bool direct_p2p_pending = false;
 static NET_DatagramSocket* p2p_sock = NULL;
 static u16 input_history[2][INPUT_HISTORY_MAX] = { 0 };
 static float frames_behind = 0;
@@ -116,14 +117,6 @@ static void clean_input_buffers() {
 static void setup_vs_mode() {
     task[TASK_MENU].r_no[0] = 5; // go to idle routine (doing nothing)
     cpExitTask(TASK_SAVER);
-    cpExitTask(TASK_PAUSE);
-
-    // Reset play-state that may differ between clients.
-    Pause = 0;
-    Game_pause = 0;
-    Play_Mode = 0;
-    Replay_Status[0] = 0;
-    Replay_Status[1] = 0;
 
     plw[0].wu.operator = 1;
     plw[1].wu.operator = 1;
@@ -134,9 +127,6 @@ static void setup_vs_mode() {
     grade_check_work_1st_init(1, 0);
     grade_check_work_1st_init(1, 1);
     Setup_Training_Difficulty();
-
-    System_all_clear_Level_B();
-    effect_work_init();
 
     G_No[1] = 12;
     G_No[2] = 1;
@@ -619,7 +609,19 @@ void Netplay_SetParams(int player, const char* ip) {
     }
 }
 
-void Netplay_Begin() {
+void Netplay_BeginDirectP2P() {
+    if (remote_ip == NULL) {
+        return;
+    }
+    direct_p2p_pending = true;
+}
+
+void Netplay_TickDirectP2P() {
+    if (!direct_p2p_pending) {
+        return;
+    }
+
+    direct_p2p_pending = false;
     setup_vs_mode();
 
     SDL_zeroa(input_history);
