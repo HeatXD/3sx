@@ -12,18 +12,11 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 # Include directories
 # ======================================
 
-set(THIRD_PARTY_DIR "${CMAKE_SOURCE_DIR}/third_party")
-
-set(GEKKONET_ROOT  "${THIRD_PARTY_DIR}/GekkoNet/build")
-set(SDL3_NET_ROOT  "${THIRD_PARTY_DIR}/SDL_net/build")
-
 include_directories(
     ${PROJECT_SOURCE_DIR}/src
     ${PROJECT_SOURCE_DIR}/include
     ${PROJECT_SOURCE_DIR}/include/sdk
     ${PROJECT_SOURCE_DIR}/zlib
-    ${GEKKONET_ROOT}/include
-    ${SDL3_NET_ROOT}/include
 )
 
 # ======================================
@@ -93,13 +86,6 @@ target_compile_options(3sx PRIVATE
     ${DISABLED_WARNINGS}
 )
 
-target_link_libraries(3sx PRIVATE
-    m
-    "${GEKKONET_ROOT}/lib/libGekkoNet.a"
-    "${SDL3_NET_ROOT}/lib/libSDL3_net.a"
-    stdc++
-)
-
 set_target_properties(3sx PROPERTIES
     MACOSX_BUNDLE_INFO_PLIST "${CMAKE_SOURCE_DIR}/cmake/Info.plist"
 )
@@ -120,19 +106,29 @@ endif()
 # Dependencies
 # ======================================
 
-set(FFMPEG_ROOT  "${THIRD_PARTY_DIR}/ffmpeg/build")
-set(SDL3_ROOT    "${THIRD_PARTY_DIR}/sdl3/build")
-set(LIBCDIO_ROOT "${THIRD_PARTY_DIR}/libcdio/build")
+set(THIRD_PARTY_DIR "${CMAKE_SOURCE_DIR}/third_party")
+
+set(FFMPEG_ROOT    "${THIRD_PARTY_DIR}/ffmpeg/build")
+set(SDL3_ROOT      "${THIRD_PARTY_DIR}/sdl3/build")
+set(LIBCDIO_ROOT   "${THIRD_PARTY_DIR}/libcdio/build")
+set(GEKKONET_ROOT  "${THIRD_PARTY_DIR}/GekkoNet/build")
+set(SDL3_NET_ROOT  "${THIRD_PARTY_DIR}/SDL_net/build")
 
 include_directories(
     ${FFMPEG_ROOT}/include
     ${SDL3_ROOT}/include
     ${LIBCDIO_ROOT}/include
+    ${GEKKONET_ROOT}/include
+    ${SDL3_NET_ROOT}/include
 )
 
 target_link_libraries(3sx PRIVATE
+    m
     "${LIBCDIO_ROOT}/lib/libiso9660.a"
     "${LIBCDIO_ROOT}/lib/libcdio.a"
+    "${GEKKONET_ROOT}/lib/libGekkoNet.a"
+    "${SDL3_NET_ROOT}/lib/libSDL3_net.a"
+    stdc++
 )
 
 if(APPLE)
