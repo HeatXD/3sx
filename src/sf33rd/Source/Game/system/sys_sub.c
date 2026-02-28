@@ -6,6 +6,7 @@
 #include "sf33rd/Source/Game/system/sys_sub.h"
 #include "common.h"
 #include "main.h"
+#include "netplay/netplay.h"
 #include "sf33rd/AcrSDK/common/mlPAD.h"
 #include "sf33rd/AcrSDK/ps2/flps2debug.h"
 #include "sf33rd/Source/Game/com/com_data.h"
@@ -1017,6 +1018,7 @@ void Soft_Reset_Sub() {
     init_pulpul_work();
     pp_operator_check_flag(1);
     Init_Load_Request_Queue_1st();
+    Netplay_CancelMatchmaking();
     cpExitTask(TASK_MENU);
     cpExitTask(TASK_SAVER);
     cpExitTask(TASK_PAUSE);

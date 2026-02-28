@@ -373,6 +373,17 @@ void Mode_Select(struct _TASK* task_ptr) {
         break;
 
     case 3:
+#if defined(NETPLAY_ENABLED)
+        if (Netplay_IsMatchmakingPending()) {
+            s16 sw = (~plsw_01[0] & plsw_00[0]) | (~plsw_01[1] & plsw_00[1]);
+
+            if (sw & (SWK_SOUTH | SWK_EAST)) {
+                Netplay_CancelMatchmaking();
+                SE_selected();
+            }
+            break;
+        }
+#endif
         if (Connect_Status == 0 && Menu_Cursor_Y[0] == 1) {
             Menu_Cursor_Y[0] = 2;
         } else {
@@ -405,11 +416,11 @@ void Mode_Select(struct _TASK* task_ptr) {
 
             case 4:
 #if defined(NETPLAY_ENABLED)
-                Netplay_Begin();
+                Netplay_BeginMatchmaking();
+                SE_selected();
                 break;
-#else
-                /* fallthrough */
 #endif
+                /* fallthrough */
 
             case 2:
             case 3:
