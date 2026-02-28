@@ -722,7 +722,7 @@ void Netplay_Run() {
             NET_Quit();
         }
 
-        Matchmaking_Reset();
+        Netplay_CancelMatchmaking();
         session_state = NETPLAY_SESSION_IDLE;
         break;
 
