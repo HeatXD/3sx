@@ -19,11 +19,14 @@ static const char* mm_message(MatchmakingState s) {
     case MATCHMAKING_CONNECTING_TCP:
     case MATCHMAKING_AWAITING_ID:
         return "Connecting to server...";
+
     case MATCHMAKING_SENDING_UDP:
     case MATCHMAKING_AWAITING_MATCH:
         return "Finding match...";
+
     case MATCHMAKING_ERROR:
         return "Matchmaking error";
+
     default:
         return "";
     }
@@ -59,6 +62,7 @@ void NetplayScreen_Render() {
 
     // After a match is found, show "Match found!" during VS mode loading and
     // hold it briefly into the connecting phase before revealing the game.
+    // this should maybe be replaced by actual visual effects but good for a prototype.
     if (ns == NETPLAY_SESSION_TRANSITIONING) {
         match_found_hold = MATCH_FOUND_HOLD_FRAMES;
     } else if (match_found_hold > 0) {
@@ -71,7 +75,9 @@ void NetplayScreen_Render() {
 
     const u8 prev = No_Trans;
     No_Trans = 0;
+
     overwrite_panel(0xFF000000, 3);
     SSPutStrPro(1, 384, 110, 9, 0xFFFFFFFF, msg);
+
     No_Trans = prev;
 }
