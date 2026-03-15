@@ -1,9 +1,25 @@
 #include "port/resources.h"
 #include "port/paths.h"
+#if CHECKSUM
 #include "utils/sha256.h"
+#endif
 
 #include <SDL3/SDL.h>
+
+#ifndef __EMSCRIPTEN__
 #include <cdio/iso9660.h>
+#else
+#include <emscripten/emscripten.h>
+
+// In the WASM build the user drops the AFS file directly onto the canvas.
+// JS writes it to WASM_AFS_PATH then calls Resources_OnAFSDropped().
+#define WASM_AFS_PATH "/SF33RD.AFS"
+static bool wasm_afs_ready = false;
+
+EMSCRIPTEN_KEEPALIVE void Resources_OnAFSDropped(void) {
+    wasm_afs_ready = true;
+}
+#endif
 
 #define EXPECTED_AFS_SHA "f9fa50f3a124ec9fa9465aa9c8546c2d867887eb39f711a070762a0324ba5604"
 #define ERROR_LEN_MAX 512
@@ -14,6 +30,14 @@ static ResourceCopyingFlowState flow_state = INIT;
 static SDL_Window* dialog_owner_window = NULL;
 static char error[ERROR_LEN_MAX] = { 0 };
 static const char* afs_path = NULL;
+
+static bool file_exists(const char* path) {
+    SDL_PathInfo path_info;
+    SDL_GetPathInfo(path, &path_info);
+    return path_info.type == SDL_PATHTYPE_FILE;
+}
+
+#ifndef __EMSCRIPTEN__
 
 static void create_dialog_parent_window() {
     if (dialog_owner_window != NULL) {
@@ -34,17 +58,13 @@ static void destroy_dialog_owner_window() {
     dialog_owner_window = NULL;
 }
 
-static bool file_exists(const char* path) {
-    SDL_PathInfo path_info;
-    SDL_GetPathInfo(path, &path_info);
-    return path_info.type == SDL_PATHTYPE_FILE;
-}
-
 static void create_resources_directory() {
     char* path = Resources_GetPath(NULL);
     SDL_CreateDirectory(path);
     SDL_free(path);
 }
+
+
 
 #define CHUNK_SECTORS 16
 #define BUFFER_SIZE (ISO_BLOCKSIZE * CHUNK_SECTORS)
@@ -128,6 +148,8 @@ static void open_dialog() {
     SDL_ShowOpenFileDialog(open_file_dialog_callback, NULL, dialog_owner_window, &filter, 1, NULL, false);
 }
 
+#endif // !__EMSCRIPTEN__
+
 char* Resources_GetPath(const char* file_path) {
     const char* base = Paths_GetPrefPath();
     char* full_path = NULL;
@@ -185,6 +207,14 @@ bool Resources_Check() {
 }
 
 bool Resources_RunResourceCopyingFlow() {
+#ifdef __EMSCRIPTEN__
+    // Waiting for the user to drop the AFS file onto the canvas.
+    if (!wasm_afs_ready) {
+        return false;
+    }
+    wasm_afs_ready = false;
+    return true; // AFS is already at WASM_AFS_PATH, ready to use
+#else
     switch (flow_state) {
     case INIT:
         create_dialog_parent_window();
@@ -219,12 +249,17 @@ bool Resources_RunResourceCopyingFlow() {
     }
 
     return false;
+#endif
 }
 
 const char* Resources_GetAFSPath() {
+#ifdef __EMSCRIPTEN__
+    return WASM_AFS_PATH;
+#else
     if (afs_path == NULL) {
         afs_path = Resources_GetPath("SF33RD.AFS");
     }
 
     return afs_path;
+#endif
 }

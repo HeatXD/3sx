@@ -3,6 +3,11 @@
 
 #include <stdbool.h>
 
+#ifdef __EMSCRIPTEN__
+/// @brief Called from JS (via Module._Resources_OnAFSDropped) after the user drops the AFS file onto the canvas.
+void Resources_OnAFSDropped(void);
+#endif
+
 /// @brief Get path to a file in resources folder.
 /// @param file_path Relative path to a file in resources, or `NULL` for path to the root of resources folder.
 char* Resources_GetPath(const char* file_path);
