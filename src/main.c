@@ -45,6 +45,10 @@
 
 #include <SDL3/SDL.h>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten/emscripten.h>
+#endif
+
 #if _WIN32 && DEBUG
 // Including windows.h causes conflicts with the Polygon struct, so I just included the header where
 // AllocConsole is and the Windows-specific typedefs that it requires.
@@ -405,7 +409,52 @@ static bool sdl_poll_helper() {
     return continue_running;
 }
 
+#ifdef __EMSCRIPTEN__
+static void main_step(void) {
+    switch (phase) {
+    case MAIN_PHASE_INIT:
+        SDLApp_PreInit();
+
+        if (Resources_Check()) {
+            initialize_game();
+            phase = MAIN_PHASE_INITIALIZED;
+        } else {
+            phase = MAIN_PHASE_COPYING_RESOURCES;
+        }
+
+        break;
+
+    case MAIN_PHASE_COPYING_RESOURCES: {
+        const bool resource_flow_ended = Resources_RunResourceCopyingFlow();
+
+        if (resource_flow_ended) {
+            initialize_game();
+            phase = MAIN_PHASE_INITIALIZED;
+        }
+
+        break;
+    }
+
+    case MAIN_PHASE_INITIALIZED:
+        if (!SDLApp_PollEvents()) {
+            emscripten_cancel_main_loop();
+            break;
+        }
+
+        SDLApp_BeginFrame();
+        game_step_0();
+        SDLApp_EndFrame();
+        game_step_1();
+        break;
+    }
+}
+#endif
+
 static int loop() {
+#ifdef __EMSCRIPTEN__
+    emscripten_set_main_loop(main_step, 0, 1);
+    return 0;
+#else
     bool is_running = true;
 
     while (is_running) {
@@ -457,6 +506,7 @@ static int loop() {
 
     cleanup();
     return 0;
+#endif
 }
 
 int main(int argc, const char* argv[]) {
