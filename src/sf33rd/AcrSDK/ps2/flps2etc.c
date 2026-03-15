@@ -19,7 +19,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(__EMSCRIPTEN__)
 #include <ctype.h>
 
 s8* strupr(s8* s) {

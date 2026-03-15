@@ -2036,7 +2036,7 @@ static void load_data_set_system(_save_work* save) {
 
     setupSoundMode();
     SsBgmHalfVolume(0);
-    setSeVolume();
+    setSeVolume(se_level);
 
     Copy_Save_w();
     Copy_Check_w();

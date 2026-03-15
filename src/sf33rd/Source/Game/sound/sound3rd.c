@@ -223,7 +223,8 @@ void sound_bgm_off() {
     }
 }
 
-void setSeVolume() {
+void setSeVolume(s16 level) {
+    (void)level;
     f32 vol;
 
     if (system_init_level & 2) {
