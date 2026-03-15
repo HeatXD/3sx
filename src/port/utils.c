@@ -1,6 +1,8 @@
 #include "port/utils.h"
 
-#if _WIN32
+#if defined(__EMSCRIPTEN__)
+// No backtrace support in WASM
+#elif _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <dbghelp.h>
@@ -28,7 +30,10 @@ void fatal_error(const char* fmt, ...) {
     va_end(args);
     void* buffer[BACKTRACE_MAX];
 
-#if !_WIN32
+#if defined(__EMSCRIPTEN__)
+    (void)buffer;
+    // No backtrace in WASM
+#elif !_WIN32
     int nptrs = backtrace(buffer, BACKTRACE_MAX);
     fprintf(stderr, "Stack trace:\n");
     backtrace_symbols_fd(buffer, nptrs, fileno(stderr));
@@ -76,7 +81,9 @@ void stop_if(bool condition) {
         return;
     }
 
-#if _WIN32
+#if defined(__EMSCRIPTEN__)
+    abort();
+#elif _WIN32
     __debugbreak();
 #else
     raise(SIGSTOP);

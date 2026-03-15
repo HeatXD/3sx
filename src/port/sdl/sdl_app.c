@@ -406,7 +406,8 @@ void SDLApp_EndFrame() {
     // Handle cursor hiding
     hide_cursor_if_needed();
 
-    // Do frame pacing
+    // Do frame pacing (browser's requestAnimationFrame handles this on WASM)
+#ifndef __EMSCRIPTEN__
     Uint64 now = SDL_GetTicksNS();
 
     if (frame_deadline == 0) {
@@ -425,6 +426,7 @@ void SDLApp_EndFrame() {
     if (now > frame_deadline + target_frame_time_ns) {
         frame_deadline = now + target_frame_time_ns;
     }
+#endif
 
     // Measure
     frame_counter += 1;
