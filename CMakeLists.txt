@@ -24,6 +24,16 @@ include_directories(
 
 file(GLOB_RECURSE GAME_SRC src/*.c)
 
+if(EMSCRIPTEN)
+    # Netplay requires GekkoNet + SDL3_net (UDP), neither available in browsers.
+    list(FILTER GAME_SRC EXCLUDE REGEX ".*/netplay/.*")
+    list(FILTER GAME_SRC EXCLUDE REGEX ".*/netplay_screen\\.c$")
+    list(FILTER GAME_SRC EXCLUDE REGEX ".*/netstats_renderer\\.c$")
+    # sha256 depends on tf-psa-crypto (psa/crypto.h), not available for WASM.
+    # CHECKSUM is never defined in WASM builds so sha256 is unused anyway.
+    list(FILTER GAME_SRC EXCLUDE REGEX ".*/utils/sha256\\.c$")
+endif()
+
 add_executable(3sx MACOSX_BUNDLE
     ${GAME_SRC}
 )
@@ -34,16 +44,12 @@ add_executable(3sx MACOSX_BUNDLE
 
 target_compile_definitions(3sx PRIVATE
     $<$<CONFIG:Debug>:DEBUG>
-    $<$<CONFIG:Debug>:NETPLAY_ENABLED>
+    $<$<AND:$<CONFIG:Debug>,$<NOT:$<BOOL:${EMSCRIPTEN}>>>:NETPLAY_ENABLED>
 
     $<$<CONFIG:Release>:RELEASE>
     $<$<CONFIG:Release>:CHECKSUM>
 
     _POSIX_C_SOURCE
-
-    # GekkoNet is a pre-built static lib; these were previously propagated by its cmake target
-    GEKKONET_STATIC
-    GEKKONET_NO_ASIO
 )
 
 # Feature toggles
@@ -112,6 +118,52 @@ endif()
 # ======================================
 
 set(THIRD_PARTY_DIR "${CMAKE_SOURCE_DIR}/third_party")
+
+if(EMSCRIPTEN)
+    # ------------------------------------
+    # Emscripten / WASM build
+    # ------------------------------------
+
+    # Output .html so Emscripten generates the shell page alongside the .js/.wasm
+    set_target_properties(3sx PROPERTIES SUFFIX ".html")
+
+    # SDL3 and zlib via Emscripten's built-in ports (compile flags expose headers)
+    target_compile_options(3sx PRIVATE -sUSE_SDL=3 -sUSE_ZLIB=1 -Wno-experimental)
+
+    target_link_options(3sx PRIVATE
+        -sUSE_SDL=3
+        -sUSE_ZLIB=1                 # Emscripten's built-in zlib port
+        -sALLOW_MEMORY_GROWTH=1
+        -sINITIAL_MEMORY=67108864    # 64 MB — grows as needed
+        -sMAXIMUM_MEMORY=4294967296  # 4 GB — enough for the ISO in memory
+        -sFORCE_FILESYSTEM=1         # Include FS module for drag-and-drop writes
+        "-sEXPORTED_RUNTIME_METHODS=[FS]"
+        "-sEXPORTED_FUNCTIONS=[_main,_Resources_OnAFSDropped]"
+        -sEXIT_RUNTIME=0
+        --pre-js ${CMAKE_SOURCE_DIR}/web/pre.js
+        --shell-file ${CMAKE_SOURCE_DIR}/web/shell.html
+    )
+
+    # No netplay on WASM (UDP/GekkoNet unavailable in browsers)
+    # NETPLAY_ENABLED is intentionally omitted here
+
+    set(FFMPEG_ROOT_WASM     "${THIRD_PARTY_DIR}/ffmpeg/build-wasm")
+    set(MINIZIP_NG_ROOT_WASM "${THIRD_PARTY_DIR}/minizip-ng/build-wasm")
+
+    target_link_libraries(3sx PRIVATE
+        "${FFMPEG_ROOT_WASM}/lib/libavcodec.a"
+        "${FFMPEG_ROOT_WASM}/lib/libswresample.a"
+        "${FFMPEG_ROOT_WASM}/lib/libavutil.a"
+        "${MINIZIP_NG_ROOT_WASM}/lib/libminizip-ng.a"
+    )
+
+    include_directories(
+        ${FFMPEG_ROOT_WASM}/include
+        ${MINIZIP_NG_ROOT_WASM}/include
+    )
+
+else()
+
 find_package(ZLIB REQUIRED)
 
 set(FFMPEG_ROOT        "${THIRD_PARTY_DIR}/ffmpeg/build")
@@ -130,6 +182,12 @@ include_directories(
     ${SDL3_NET_ROOT}/include
     ${MINIZIP_NG_ROOT}/include
     ${TF_PSA_CRYPTO_ROOT}/include
+)
+
+target_compile_definitions(3sx PRIVATE
+    # GekkoNet is a pre-built static lib; these were previously propagated by its cmake target
+    GEKKONET_STATIC
+    GEKKONET_NO_ASIO
 )
 
 target_link_libraries(3sx PRIVATE
@@ -179,6 +237,8 @@ elseif(UNIX)
         ${SDL3_ROOT}/lib/libSDL3.so
     )
 endif()
+
+endif() # end EMSCRIPTEN else
 
 # ======================================
 # Installation
