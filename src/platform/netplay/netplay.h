@@ -22,6 +22,10 @@ typedef enum NetplaySessionState {
 void Netplay_SetParams(int player, const char* ip);
 void Netplay_BeginDirectP2P();
 void Netplay_TickDirectP2P();
+void Netplay_SetStressOutputDir(const char* directory);
+void Netplay_BeginStress(int seed, int check_distance, int frames);
+void Netplay_TickStress();
+void Netplay_InjectStressBootInput();
 void Netplay_SetMatchmakingParams(const char* server_ip, int server_port);
 void Netplay_BeginMatchmaking();
 void Netplay_TickMatchmaking();
